@@ -168,7 +168,7 @@ spring.application.name=book-my-show-application
 # Database Configuration
 spring.datasource.url=jdbc:mysql://localhost:3306/cinemaDB?createTableIfNotExist=true
 spring.datasource.username=root
-spring.datasource.password=admin
+spring.datasource.password=Poiuyt@123
 spring.jpa.hibernate.ddl-auto=update
 
 # API Documentation
