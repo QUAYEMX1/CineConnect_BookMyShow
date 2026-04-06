@@ -57,6 +57,7 @@ public class TheaterService {
                     .build();
 
             theaterSeatList.add(theaterSeat);
+
             ch++;
 
             if(classicSeatCounter % 5 == 0) {
@@ -76,7 +77,7 @@ public class TheaterService {
 
         // FIXED: Changed condition from classicSeatCounter to premiumSeatCounter
         while(premiumSeatCounter <= noOfPremiumSeats) {
-            String seatNo = rowNo + ch + "";
+            String seatNo = rowNo+""+ch;
             TheaterSeat theaterSeat = TheaterSeat.builder()
                     .seatNo(seatNo)
                     .theater(theater)
@@ -93,7 +94,8 @@ public class TheaterService {
             premiumSeatCounter++;
         }
 
-        theater.setTheaterSeatList(theaterSeatList);
+        theater.getTheaterSeatList().clear();
+        theater.getTheaterSeatList().addAll(theaterSeatList);
         theaterRepository.save(theater);
 
         //Theater seats will get automatically saved

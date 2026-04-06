@@ -6,6 +6,9 @@ import com.acciojob.bookmyshowapplication.Repository.*;
 import com.acciojob.bookmyshowapplication.Requests.BookTicketRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -35,6 +38,7 @@ public class TicketService {
     @Autowired
     private SeatSelectionRepository seatSelectionRepository;
 
+    @Transactional
     public Ticket bookTicket(BookTicketRequest bookTicketRequest) throws Exception{
 
         // NEW: First, get the show and check temporary seat selections
@@ -50,7 +54,8 @@ public class TicketService {
         );
 
         // NEW: Check if seats are temporarily selected by the user
-        Date cutoffTime = new Date(System.currentTimeMillis() - 10 * 60 * 1000); // 10 minutes ago
+//        Date cutoffTime = new Date(System.currentTimeMillis() - 10 * 60 * 1000); // 10 minutes ago
+        LocalDateTime cutoffTime = LocalDateTime.now().minusMinutes(10);
         List<SeatSelection> userTempSelections = seatSelectionRepository.findByShowAndStatusAndCreatedAtAfter(
                 show, "TEMP", cutoffTime
         );
@@ -66,15 +71,16 @@ public class TicketService {
         }
 
         // EXISTING CODE: Calculate the total cost of the tickets
-        Integer showId = show.getShowId();
-        List<ShowSeat> showSeatList = showSeatRepository.findShowSeats(showId);
+        List<ShowSeat> seatsToBook = showSeatRepository.findAndLockSeatsByShowAndSeatNos(
+                show, bookTicketRequest.getRequestedSeats()
+        );
 
         //Calculate the total Amt and if all seats mentioned are available or not
         int totalAmount = 0;
         Boolean areAllSeatsAvailable = Boolean.TRUE;
 
         for(String seatNo:bookTicketRequest.getRequestedSeats()) {
-            for(ShowSeat showSeat:showSeatList) {
+            for(ShowSeat showSeat:seatsToBook) {
                 if(showSeat.getSeatNo().equals(seatNo))
                 {
                     if(showSeat.getIsAvailable()==Boolean.FALSE){
@@ -92,7 +98,7 @@ public class TicketService {
 
         // EXISTING CODE: Make the seats booked:(Only if seats are available : otherwise throw exception)
         for(String seatNo:bookTicketRequest.getRequestedSeats()) {
-            for(ShowSeat showSeat:showSeatList) {
+            for(ShowSeat showSeat:seatsToBook) {
                 if(showSeat.getSeatNo().equals(seatNo))
                 {
                     showSeat.setIsAvailable(Boolean.FALSE);
@@ -101,7 +107,7 @@ public class TicketService {
         }
 
         // EXISTING CODE: Save updated show seats
-        showSeatRepository.saveAll(showSeatList);
+        showSeatRepository.saveAll(seatsToBook);
 
         User user = userRepository.findUserByMobNo(bookTicketRequest.getMobNo());
 

@@ -15,7 +15,7 @@ public class SeatController {
     @Autowired
     private SeatService seatService;
 
-    @PostMapping("/getAvailableSeats")
+    @GetMapping("/getAvailableSeats")
     public ResponseEntity<?> getAvailableSeats(@RequestBody GetAvailableSeatsRequest request) {
         try {
             Map<String, Object> seatLayout = seatService.getAvailableSeatsWithLayout(request);
@@ -35,7 +35,7 @@ public class SeatController {
         }
     }
 
-    @PostMapping("/releaseSeats")
+    @DeleteMapping("/releaseSeats")
     public ResponseEntity<?> releaseTemporarySeats(@RequestBody SeatSelectionRequest request) {
         try {
             String result = seatService.releaseTemporarySeats(request);
