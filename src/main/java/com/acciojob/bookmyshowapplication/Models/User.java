@@ -19,4 +19,8 @@ public class User {
 
     @Column(unique = true)
     private String mobNo;
+
+    private String password;   // ✅ ADD THIS
+
+    private String role;       // ✅ USER / ADMIN
 }

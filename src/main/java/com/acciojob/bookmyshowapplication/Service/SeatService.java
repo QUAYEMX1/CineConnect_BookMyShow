@@ -6,6 +6,9 @@ import com.acciojob.bookmyshowapplication.Requests.GetAvailableSeatsRequest;
 import com.acciojob.bookmyshowapplication.Requests.SeatSelectionRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -38,8 +41,11 @@ public class SeatService {
         List<ShowSeat> showSeats = showSeatRepository.findAllByShow(show);
 
         // Get temporarily selected seats
+        //this is using version of date now new version is LocalDate
+//        List<SeatSelection> tempSelections = seatSelectionRepository.findByShowAndStatusAndCreatedAtAfter(
+//                show, "TEMP", new Date(System.currentTimeMillis() - 10 * 60 * 1000));
         List<SeatSelection> tempSelections = seatSelectionRepository.findByShowAndStatusAndCreatedAtAfter(
-                show, "TEMP", new Date(System.currentTimeMillis() - 10 * 60 * 1000)); // 10 minutes
+                show, "TEMP", LocalDateTime.now().minusMinutes(10)); // 10 minutes
 
         Set<String> tempSelectedSeats = tempSelections.stream()
                 .map(SeatSelection::getSeatNo)
@@ -74,50 +80,65 @@ public class SeatService {
         return seatLayout;
     }
 
+    @Transactional
     public Map<String, Object> selectSeats(SeatSelectionRequest request) {
-        Show show = showRepository.findById(request.getShowId()).get();
-        List<ShowSeat> showSeats = showSeatRepository.findAllByShow(show);
 
-        // Check if seats are available
+        Show show = showRepository.findById(request.getShowId()).get();
+
+        // Lock the selected seats (DB level)
+        List<ShowSeat> seatsToBook = showSeatRepository.findAndLockSeatsByShowAndSeatNos(
+                show, request.getSelectedSeats()
+        );
+
+        // Get already TEMP selected seats (last 10 mins)
+        List<SeatSelection> existingSelections =
+                seatSelectionRepository.findByShowAndStatusAndCreatedAtAfter(
+                        show, "TEMP", LocalDateTime.now().minusMinutes(10)
+                );
+
+        Set<String> alreadyTempSeats = existingSelections.stream()
+                .map(SeatSelection::getSeatNo)
+                .collect(Collectors.toSet());
+
+        // Check availability (BOOKED + TEMP)
         List<String> unavailableSeats = new ArrayList<>();
         int totalAmount = 0;
 
-        for (String seatNo : request.getSelectedSeats()) {
-            ShowSeat seat = showSeats.stream()
-                    .filter(s -> s.getSeatNo().equals(seatNo))
-                    .findFirst()
-                    .orElse(null);
+        for (ShowSeat seat : seatsToBook) {
 
-            if (seat == null || !seat.getIsAvailable()) {
-                unavailableSeats.add(seatNo);
+            if (!seat.getIsAvailable() || alreadyTempSeats.contains(seat.getSeatNo())) {
+                unavailableSeats.add(seat.getSeatNo());
             } else {
                 totalAmount += seat.getPrice();
             }
         }
 
+        // If any seat unavailable → fail
         if (!unavailableSeats.isEmpty()) {
             Map<String, Object> response = new HashMap<>();
             response.put("success", false);
-            response.put("message", "Some seats are not available");
+            response.put("message", "Some seats are not available or already temporarily selected");
             response.put("unavailableSeats", unavailableSeats);
             return response;
         }
 
-        // Clear previous temp selections for this user
+        // Clear previous TEMP selections for this user
         seatSelectionRepository.deleteByUserMobNoAndShow(request.getUserMobNo(), show);
 
-        // Create temporary selections
+        // Create new TEMP selections
         for (String seatNo : request.getSelectedSeats()) {
             SeatSelection selection = SeatSelection.builder()
                     .show(show)
                     .seatNo(seatNo)
                     .userMobNo(request.getUserMobNo())
                     .status("TEMP")
-                    .createdAt(new Date())
+                    .createdAt(LocalDateTime.now())
                     .build();
+
             seatSelectionRepository.save(selection);
         }
 
+        // Success response
         Map<String, Object> response = new HashMap<>();
         response.put("success", true);
         response.put("totalAmount", totalAmount);

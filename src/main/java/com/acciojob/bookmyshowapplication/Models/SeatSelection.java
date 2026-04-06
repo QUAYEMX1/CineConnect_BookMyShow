@@ -2,7 +2,9 @@ package com.acciojob.bookmyshowapplication.Models;
 
 import jakarta.persistence.*;
 import lombok.*;
-import java.util.Date;
+import org.hibernate.annotations.CreationTimestamp;
+
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "seat_selections")
@@ -23,6 +25,10 @@ public class SeatSelection {
     private String userMobNo;
     private String status; // TEMP, CONFIRMED
 
-    @Temporal(TemporalType.TIMESTAMP)
-    private Date createdAt;
+//    @Temporal(TemporalType.TIMESTAMP)
+//    private Date createdAt;
+
+//    @CreationTimestamp
+//    @Column(updatable = false)
+    private LocalDateTime createdAt;
 }
